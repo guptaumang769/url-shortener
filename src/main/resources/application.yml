@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: url-shortener
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/urlshortener}
+    username: ${DB_USER:urls}
+    password: ${DB_PASSWORD:urls}
+    hikari:
+      # Connection-pool sizing for a read-heavy, horizontally-scaled service.
+      # Rule of thumb: pool size ~ (core_count * 2) per instance; keep it SMALL —
+      # a big pool per pod × many pods can overwhelm Postgres' max_connections.
+      # With the HPA scaling to 20 pods, 10 conns/pod = up to 200 — sized to sit
+      # under a typical Postgres max_connections (and a PgBouncer would sit in front
+      # of that in production). Most reads are served from Redis, not the pool.
+      maximum-pool-size: ${DB_POOL_MAX:10}
+      minimum-idle: ${DB_POOL_MIN:2}
+      connection-timeout: 3000      # fail fast instead of piling up requests
+      max-lifetime: 1800000
+      # Optional dedicated read-replica datasource URL (routing left to the app/proxy).
+      # read-url: ${DB_READ_URL:}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        # Batch writes when the shortener does bulk inserts; harmless for single writes.
+        jdbc:
+          batch_size: 20
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+server:
+  port: 8080
+
+app:
+  base-url: ${APP_BASE_URL:http://localhost:8080}
+
+# Token-bucket rate limiter: burst up to `capacity`, sustained `refill-per-sec`.
+ratelimit:
+  capacity: ${RATELIMIT_CAPACITY:20}
+  refill-per-sec: ${RATELIMIT_REFILL:10}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

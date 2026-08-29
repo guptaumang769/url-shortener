@@ -1,0 +1,9 @@
+target/
+.git/
+.github/
+.idea/
+.vscode/
+k8s/
+terraform/
+*.md
+.DS_Store

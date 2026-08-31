@@ -6,17 +6,9 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
 /**
- * Distributed token-bucket rate limiter backed by Redis.
- *
- * <p>Why token bucket? It allows short bursts (up to the bucket capacity) while capping
- * the sustained rate (the refill rate) — a better fit for real traffic than a fixed
- * window, which lets 2× the limit through at a window boundary.
- *
- * <p>Why a Lua script? The check-and-decrement must be atomic. If we did GET then SET
- * from Java, two concurrent requests could both read "1 token left" and both proceed —
- * classic race. Redis runs the whole script atomically on the server, so the read,
- * refill calculation, and token deduction happen as one indivisible step. This is the
- * canonical way to build a correct distributed limiter.
+ * Distributed token-bucket rate limiter backed by Redis. Token bucket allows bursts up to
+ * capacity while capping the sustained rate. The check-refill-decrement runs in a Lua script
+ * so it's atomic on the Redis server — a GET-then-SET from Java would race across instances.
  */
 @Service
 public class RateLimiterService {

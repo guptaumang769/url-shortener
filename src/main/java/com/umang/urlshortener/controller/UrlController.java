@@ -9,12 +9,14 @@ import com.umang.urlshortener.service.UrlService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -46,11 +48,23 @@ public class UrlController {
         return ResponseEntity.ok(urlService.getStats(shortCode));
     }
 
-    /** Redirect a short code to its long URL (301). This is the read-heavy hot path. */
+    /** List a caller's URLs, newest first, via keyset pagination (pass the last id as afterId). */
+    @GetMapping("/api/v1/urls")
+    public ResponseEntity<List<UrlStatsResponse>> list(@RequestParam String user,
+                                                       @RequestParam(required = false) Long afterId,
+                                                       @RequestParam(defaultValue = "20") int limit) {
+        return ResponseEntity.ok(urlService.listByUser(user, afterId, limit));
+    }
+
+    /**
+     * Redirect a short code to its long URL. Returns 302 (not 301) on purpose: 301 is cached
+     * by browsers/proxies, so repeat clicks would skip the server and the click counter would
+     * under-count. 302 keeps every click flowing through the redirect path.
+     */
     @GetMapping("/{shortCode:[A-Za-z0-9]{3,16}}")
     public ResponseEntity<Void> redirect(@PathVariable String shortCode) {
         String longUrl = urlService.resolveAndCount(shortCode);
-        return ResponseEntity.status(HttpStatus.MOVED_PERMANENTLY)
+        return ResponseEntity.status(HttpStatus.FOUND)
                 .location(URI.create(longUrl))
                 .build();
     }

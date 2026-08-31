@@ -1,16 +1,9 @@
 package com.umang.urlshortener.util;
 
 /**
- * Base62 encoder/decoder for turning a numeric ID into a short URL-safe code and back.
- *
- * <p>Why Base62? The alphabet [0-9A-Za-z] is 62 characters — every character is URL-safe
- * (no escaping) and case-sensitive, so 7 characters give 62^7 ≈ 3.5 trillion codes. That
- * is the standard technique behind bit.ly-style shorteners.
- *
- * <p>Why encode a DB-generated ID rather than hash the URL? A monotonic ID guarantees no
- * collisions by construction — we never have to check "is this code taken?" before insert.
- * Hashing the long URL (e.g. MD5→Base62) would need collision handling and re-hashing.
- * The trade-off: sequential IDs are guessable/enumerable, which we mitigate below.
+ * Base62 ([0-9A-Za-z]) encoder/decoder for turning a numeric ID into a short URL-safe code.
+ * Encoding a monotonic DB id (rather than hashing the URL) means codes can't collide, so
+ * there's no "is this code taken?" check on insert. 7 chars ≈ 62^7 ≈ 3.5 trillion codes.
  */
 public final class Base62 {
 
@@ -21,12 +14,14 @@ public final class Base62 {
     private Base62() {
     }
 
+    private static final int MIN_LENGTH = 3;
+
     public static String encode(long value) {
         if (value < 0) {
             throw new IllegalArgumentException("value must be non-negative: " + value);
         }
         if (value == 0) {
-            return String.valueOf(ALPHABET.charAt(0));
+            return "0".repeat(MIN_LENGTH);
         }
         StringBuilder sb = new StringBuilder();
         while (value > 0) {
@@ -34,7 +29,9 @@ public final class Base62 {
             sb.append(ALPHABET.charAt(remainder));
             value /= BASE;
         }
-        // Digits were produced least-significant first; reverse to most-significant first.
+        while (sb.length() < MIN_LENGTH) {
+            sb.append('0');
+        }
         return sb.reverse().toString();
     }
 

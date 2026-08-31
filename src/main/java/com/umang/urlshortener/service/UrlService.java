@@ -10,9 +10,11 @@ import com.umang.urlshortener.repository.UrlMappingRepository;
 import com.umang.urlshortener.util.Base62;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,8 +52,7 @@ public class UrlService {
                 .build();
 
         if (request.customAlias() != null && !request.customAlias().isBlank()) {
-            // Custom alias: use verbatim. Rely on the unique constraint to reject dupes
-            // rather than a check-then-insert (which would have a TOCTOU race).
+            // Let the unique constraint reject a taken alias; a check-then-insert would race.
             mapping.setShortCode(request.customAlias());
             try {
                 mapping = repository.saveAndFlush(mapping);
@@ -59,26 +60,21 @@ public class UrlService {
                 throw new AliasTakenException(request.customAlias());
             }
         } else {
-            // Auto code: save to get the identity id, then Base62-encode it as the code.
-            // Two-step so the code is a pure function of the collision-free primary key.
+            // Placeholder satisfies NOT NULL; replaced with Base62(id) once the insert assigns it.
+            mapping.setShortCode(java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16));
             mapping = repository.saveAndFlush(mapping);
             mapping.setShortCode(Base62.encode(mapping.getId()));
-            mapping = repository.save(mapping);
+            mapping = repository.saveAndFlush(mapping);
         }
 
         cachePut(mapping);
         return toResponse(mapping);
     }
 
-    /**
-     * Resolve a short code to its long URL using cache-aside:
-     * 1) look in Redis; 2) on miss, read the DB and populate the cache; 3) return.
-     * Reads dominate a URL shortener (~100:1), so this keeps almost all traffic off Postgres.
-     */
     public String resolveAndCount(String shortCode) {
         String cached = redis.opsForValue().get(CACHE_PREFIX + shortCode);
         if (cached != null) {
-            incrementAsync(shortCode);
+            repository.incrementClickCountByShortCode(shortCode);
             return cached;
         }
 
@@ -94,19 +90,20 @@ public class UrlService {
         return mapping.getLongUrl();
     }
 
-    /** Read-only stats lookup (no click increment) — always hits the DB for fresh counts. */
+    /** Read-only stats lookup (no click increment) — always hits the DB for a fresh count. */
     public UrlStatsResponse getStats(String shortCode) {
         UrlMapping m = repository.findByShortCode(shortCode)
                 .orElseThrow(() -> new NotFoundException("Short code not found: " + shortCode));
-        return new UrlStatsResponse(m.getShortCode(), m.getLongUrl(),
-                m.getClickCount(), m.getCreatedAt(), m.getExpiresAt());
+        return toStats(m);
     }
 
-    private void incrementAsync(String shortCode) {
-        // Best-effort counter bump on cache hit. In production this would be an async
-        // event/batched counter (e.g. Kafka + periodic flush) to avoid a DB write per read.
-        repository.findByShortCode(shortCode)
-                .ifPresent(m -> repository.incrementClickCount(m.getId()));
+    /** A caller's URLs, newest first, using keyset pagination (afterId = last id seen). */
+    public List<UrlStatsResponse> listByUser(String user, Long afterId, int limit) {
+        long cursor = afterId == null ? Long.MAX_VALUE : afterId;
+        int pageSize = Math.min(Math.max(limit, 1), 100);
+        return repository.findPageByUser(user, cursor, Limit.of(pageSize)).stream()
+                .map(this::toStats)
+                .toList();
     }
 
     private void cachePut(UrlMapping mapping) {
@@ -128,5 +125,10 @@ public class UrlService {
                 baseUrl + "/" + m.getShortCode(),
                 m.getLongUrl(),
                 m.getExpiresAt());
+    }
+
+    private UrlStatsResponse toStats(UrlMapping m) {
+        return new UrlStatsResponse(m.getShortCode(), m.getLongUrl(),
+                m.getClickCount(), m.getCreatedAt(), m.getExpiresAt());
     }
 }

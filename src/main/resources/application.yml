@@ -7,18 +7,12 @@ spring:
     username: ${DB_USER:urls}
     password: ${DB_PASSWORD:urls}
     hikari:
-      # Connection-pool sizing for a read-heavy, horizontally-scaled service.
-      # Rule of thumb: pool size ~ (core_count * 2) per instance; keep it SMALL —
-      # a big pool per pod × many pods can overwhelm Postgres' max_connections.
-      # With the HPA scaling to 20 pods, 10 conns/pod = up to 200 — sized to sit
-      # under a typical Postgres max_connections (and a PgBouncer would sit in front
-      # of that in production). Most reads are served from Redis, not the pool.
+      # Keep the pool small per pod: 10 conns × 20 pods (HPA max) stays under Postgres'
+      # max_connections. Most reads hit Redis, not the pool; PgBouncer would front prod.
       maximum-pool-size: ${DB_POOL_MAX:10}
       minimum-idle: ${DB_POOL_MIN:2}
       connection-timeout: 3000      # fail fast instead of piling up requests
       max-lifetime: 1800000
-      # Optional dedicated read-replica datasource URL (routing left to the app/proxy).
-      # read-url: ${DB_READ_URL:}
 
   jpa:
     hibernate:

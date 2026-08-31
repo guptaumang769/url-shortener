@@ -1,4 +1,4 @@
-# Multi-stage build (see book-my-show-backend/guides/02 for the full rationale).
+# Multi-stage build: fat jar in the Maven/JDK stage, run it on a slim JRE.
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
 COPY pom.xml .

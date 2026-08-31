@@ -85,10 +85,9 @@ resource "aws_db_instance" "postgres" {
   backup_retention_period = 1    # required (>0) to allow read replicas
 }
 
-# Read replica for the read-heavy redirect path. A URL shortener is ~100:1
-# reads:writes, so reads scale out to the replica while writes go to the primary.
-# The app routes GET /{code} lookups here (via DB_READ_URL) and shortens to the
-# primary. Toggle with var.enable_read_replica to keep the default demo cheap.
+# Read replica for the read-heavy redirect path (~100:1 reads:writes). Provisioned here so
+# reads can scale out to it while writes go to the primary; wiring app-level read/write
+# routing (a DB_READ_URL datasource) is the next step. Toggle with var.enable_read_replica.
 resource "aws_db_instance" "postgres_replica" {
   count                  = var.enable_read_replica ? 1 : 0
   identifier             = "${var.project}-db-replica"

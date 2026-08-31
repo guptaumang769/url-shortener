@@ -12,8 +12,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 class Base62Test {
 
     @Test
-    void encodesZeroAsFirstAlphabetChar() {
-        assertThat(Base62.encode(0)).isEqualTo("0");
+    void encodesZeroWithMinimumPadding() {
+        assertThat(Base62.encode(0)).isEqualTo("000");
     }
 
     @ParameterizedTest
@@ -31,6 +31,12 @@ class Base62Test {
         for (long id = 1; id <= 100_000; id++) {
             assertThat(codes.add(Base62.encode(id))).isTrue();
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, 1, 61, 62})
+    void encodedCodeIsAtLeastThreeChars(long value) {
+        assertThat(Base62.encode(value).length()).isGreaterThanOrEqualTo(3);
     }
 
     @Test

@@ -85,6 +85,30 @@ class UrlShortenerIT {
     }
 
     @Test
+    void resolvingIncrementsTheClickCount() {
+        ShortenResponse resp = urlService.shorten(
+                new ShortenRequest("https://clicked.com", null, null), "tester");
+
+        urlService.resolveAndCount(resp.shortCode());
+        urlService.resolveAndCount(resp.shortCode());
+
+        assertThat(urlService.getStats(resp.shortCode()).clickCount()).isEqualTo(2);
+    }
+
+    @Test
+    void listByUserReturnsNewestFirstAndPages() {
+        urlService.shorten(new ShortenRequest("https://one.com", null, null), "lister");
+        urlService.shorten(new ShortenRequest("https://two.com", null, null), "lister");
+        urlService.shorten(new ShortenRequest("https://three.com", null, null), "lister");
+
+        var page = urlService.listByUser("lister", null, 2);
+
+        assertThat(page).hasSize(2);
+        assertThat(page.get(0).longUrl()).isEqualTo("https://three.com"); // newest id first
+        assertThat(page.get(1).longUrl()).isEqualTo("https://two.com");
+    }
+
+    @Test
     void rateLimiterBlocksAfterBucketIsDrained() {
         String client = "1.2.3.4";
         // capacity=3, refill=0 → first 3 allowed, 4th denied.

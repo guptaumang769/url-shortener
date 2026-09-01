@@ -69,20 +69,20 @@ resource "aws_db_subnet_group" "db" {
 }
 
 resource "aws_db_instance" "postgres" {
-  identifier             = "${var.project}-db"
-  engine                 = "postgres"
-  engine_version         = "17"
-  instance_class         = "db.t3.micro"
-  allocated_storage      = 20
-  db_name                = "urlshortener"
-  username               = "urls"
-  password               = var.db_password
-  db_subnet_group_name   = aws_db_subnet_group.db.name
-  vpc_security_group_ids = [aws_security_group.data.id]
-  multi_az               = false # set true for HA (prod); costs ~2x
-  skip_final_snapshot    = true
-  publicly_accessible    = false
-  backup_retention_period = 1    # required (>0) to allow read replicas
+  identifier              = "${var.project}-db"
+  engine                  = "postgres"
+  engine_version          = "17"
+  instance_class          = "db.t3.micro"
+  allocated_storage       = 20
+  db_name                 = "urlshortener"
+  username                = "urls"
+  password                = var.db_password
+  db_subnet_group_name    = aws_db_subnet_group.db.name
+  vpc_security_group_ids  = [aws_security_group.data.id]
+  multi_az                = false # set true for HA (prod); costs ~2x
+  skip_final_snapshot     = true
+  publicly_accessible     = false
+  backup_retention_period = 1 # required (>0) to allow read replicas
 }
 
 # Read replica for the read-heavy redirect path (~100:1 reads:writes). Provisioned here so

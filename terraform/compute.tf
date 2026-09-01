@@ -47,11 +47,11 @@ resource "aws_ecs_task_definition" "app" {
   memory                   = "1024"
   execution_role_arn       = aws_iam_role.task_execution.arn
 
-  container_definitions    = jsonencode([
+  container_definitions = jsonencode([
     {
-      name      = "app"
-      image     = var.container_image
-      essential = true
+      name         = "app"
+      image        = var.container_image
+      essential    = true
       portMappings = [{ containerPort = 8080 }]
       environment = [
         { name = "DB_URL", value = "jdbc:postgresql://${aws_db_instance.postgres.address}:5432/urlshortener" },

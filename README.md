@@ -27,13 +27,13 @@ Java 21 · Spring Boot 3 · PostgreSQL · Redis · Docker · Kubernetes · AWS (
 ```mermaid
 flowchart TD
     Client -->|POST /api/v1/shorten| Ctrl[UrlController]
-    Client -->|GET /{code}| Ctrl
-    Ctrl -->|rate-limit check| RL[RateLimiterService<br/>token bucket, Redis Lua]
+    Client -->|GET /code| Ctrl
+    Ctrl -->|rate-limit check| RL["RateLimiterService — token bucket, Redis Lua"]
     RL --> Redis[(Redis)]
     Ctrl --> Svc[UrlService]
     Svc <-->|cache-aside: hot codes| Redis
-    Svc -->|cache miss / writes| DB[(PostgreSQL<br/>unique index on short_code)]
-    Svc -->|reads at scale| Replica[(RDS read replica<br/>optional)]
+    Svc -->|cache miss / writes| DB[("PostgreSQL — unique index on short_code")]
+    Svc -->|reads at scale| Replica[("RDS read replica — optional")]
 ```
 
 - **Writes** (`shorten`) → primary Postgres; **reads** (`GET /{code}`) → Redis first,
